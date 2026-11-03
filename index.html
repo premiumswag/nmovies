@@ -180,7 +180,7 @@
     <div id="details-view" class="hidden max-w-5xl mx-auto space-y-6 animate-fadeIn">
       <!-- Top Back Bar -->
       <div class="flex items-center justify-between">
-        <button onclick="closeDetailsView()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs sm:text-sm font-bold border border-slate-800 transition-all">
+        <button onclick="goBackToBrowse()" class="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 text-xs sm:text-sm font-bold border border-slate-800 transition-all">
           <i class="fa-solid fa-arrow-left"></i> Back to Browse
         </button>
         <div class="flex items-center gap-2">
@@ -476,6 +476,7 @@
     }
 
     function loadCategory(path, title) {
+      leaveMovieRoute();
       currentState.path = path;
       currentState.title = title;
       currentState.page = 1;
@@ -484,10 +485,17 @@
       fetchGridData();
     }
 
+    function leaveMovieRoute() {
+      if (location.hash.startsWith('#/movie/')) {
+        history.pushState(null, '', `${location.pathname}${location.search}`);
+      }
+    }
+
     function handleSearchSubmit(e) {
       e.preventDefault();
       const q = document.getElementById('search-input').value.trim();
       if (!q) return;
+      leaveMovieRoute();
       currentState.path = '/search';
       currentState.title = `Search: "${q}"`;
       currentState.page = 1;
@@ -503,7 +511,15 @@
     }
 
     // Open Single Movie / Series Details
-    async function openMovieDetails(slug) {
+    async function openMovieDetails(slug, options = {}) {
+      if (options.updateUrl !== false) {
+        history.pushState(
+          { nmoviesMovieSlug: slug },
+          '',
+          `${location.pathname}${location.search}#/movie/${encodeURIComponent(slug)}`
+        );
+      }
+
       document.getElementById('grid-view').classList.add('hidden');
       document.getElementById('category-pills-bar').classList.add('hidden');
       document.getElementById('details-view').classList.remove('hidden');
@@ -642,6 +658,36 @@
       document.getElementById('category-pills-bar').classList.remove('hidden');
     }
 
+    function goBackToBrowse() {
+      if (history.state && history.state.nmoviesMovieSlug) {
+        history.back();
+        return;
+      }
+
+      history.replaceState(null, '', `${location.pathname}${location.search}`);
+      fetchGridData();
+    }
+
+    function getMovieSlugFromUrl() {
+      const match = location.hash.match(/^#\/movie\/(.+)$/);
+      if (!match) return null;
+
+      try {
+        return decodeURIComponent(match[1]);
+      } catch {
+        return null;
+      }
+    }
+
+    function handleLocationChange() {
+      const slug = getMovieSlugFromUrl();
+      if (slug) {
+        openMovieDetails(slug, { updateUrl: false });
+      } else {
+        fetchGridData();
+      }
+    }
+
     // Trailer Modal
     function openTrailer() {
       const d = currentState.currentItem;
@@ -694,6 +740,7 @@
     }
 
     function showSavedWatchlist() {
+      leaveMovieRoute();
       closeDetailsView();
       const items = getSavedItems();
       document.getElementById('section-title').textContent = 'My Saved Watchlist';
@@ -711,8 +758,14 @@
     // Initialize on Load
     window.addEventListener('DOMContentLoaded', () => {
       updateSavedCounter();
-      fetchGridData();
+      const slug = getMovieSlugFromUrl();
+      if (slug) {
+        openMovieDetails(slug, { updateUrl: false });
+      } else {
+        fetchGridData();
+      }
     });
+    window.addEventListener('popstate', handleLocationChange);
   </script>
 </body>
 </html>
