@@ -340,6 +340,7 @@
   <!-- FRONTEND LOGIC -->
   <script>
     const API_BASE_URL = 'https://nmovies-backend.onrender.com';
+    const APP_BASE_PATH = '/nmovies/';
 
     // Block popups / new-tab ads / redirects opened from this page or its frames
     (function () {
@@ -486,8 +487,8 @@
     }
 
     function leaveMovieRoute() {
-      if (location.hash.startsWith('#/movie/')) {
-        history.pushState(null, '', `${location.pathname}${location.search}`);
+      if (getMovieSlugFromUrl()) {
+        history.pushState(null, '', APP_BASE_PATH);
       }
     }
 
@@ -516,7 +517,7 @@
         history.pushState(
           { nmoviesMovieSlug: slug },
           '',
-          `${location.pathname}${location.search}#/movie/${encodeURIComponent(slug)}`
+          `${APP_BASE_PATH}movie/${encodeURIComponent(slug)}`
         );
       }
 
@@ -664,12 +665,22 @@
         return;
       }
 
-      history.replaceState(null, '', `${location.pathname}${location.search}`);
+      history.replaceState(null, '', APP_BASE_PATH);
       fetchGridData();
     }
 
     function getMovieSlugFromUrl() {
-      const match = location.hash.match(/^#\/movie\/(.+)$/);
+      const redirectPath = new URLSearchParams(location.search).get('route');
+      if (redirectPath) {
+        const redirectUrl = new URL(redirectPath, location.origin);
+        if (redirectUrl.origin === location.origin && redirectUrl.pathname.startsWith(APP_BASE_PATH)) {
+          history.replaceState(null, '', `${redirectUrl.pathname}${redirectUrl.search}${redirectUrl.hash}`);
+        }
+      }
+
+      const pathMatch = location.pathname.match(/^\/nmovies\/movie\/([^/]+)\/?$/);
+      const hashMatch = location.hash.match(/^#\/movie\/(.+)$/);
+      const match = pathMatch || hashMatch;
       if (!match) return null;
 
       try {
@@ -760,6 +771,9 @@
       updateSavedCounter();
       const slug = getMovieSlugFromUrl();
       if (slug) {
+        if (!location.pathname.match(/^\/nmovies\/movie\/[^/]+\/?$/)) {
+          history.replaceState(null, '', `${APP_BASE_PATH}movie/${encodeURIComponent(slug)}`);
+        }
         openMovieDetails(slug, { updateUrl: false });
       } else {
         fetchGridData();
